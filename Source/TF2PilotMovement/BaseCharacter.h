@@ -78,6 +78,9 @@ protected:
 
 	void MovementInputManagement();
 
+	void ChangeGroundFriction();
+	void RestoreGroundFriction();
+
 private:
 	// Components
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Components", meta = (AllowPrivateAccess))
@@ -92,8 +95,13 @@ private:
 	// Timers
 	FTimerHandle SlideBoostResetTimer;
 	FTimerHandle MaxJumpTimer;
+	FTimerHandle GroundFrictionTimer;
 
 	// Setups
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup", meta = (AllowPrivateAccess = "true"))
+	bool bAutoSprint;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup", meta = (AllowPrivateAccess = "true"))
+	UCurveFloat* GroundFrictionCurveFloat;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Setup|Camera", meta = (AllowPrivateAccess = "true"))
 	float DefaultFOV;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Setup|Camera", meta = (AllowPrivateAccess = "true"))
@@ -109,8 +117,6 @@ private:
 	float CrouchSpeed;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup|MaxSpeed", meta = (AllowPrivateAccess = "true"))
 	float WallrunSpeed;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup", meta = (AllowPrivateAccess = "true"))
-	bool bAutoSprint;
 
 	float DefaultCapsuleHalfHeight;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup|Crouch", meta = (AllowPrivateAccess = "true"))
@@ -126,7 +132,7 @@ private:
 	float SlideCameraTiltAngle;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup|Slide", meta = (AllowPrivateAccess = "true"))
 	float SlideGroundFriction;
-	float DefaultGroundFirction;
+	float DefaultGroundFriction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Setup|Slide", meta = (AllowPrivateAccess = "true"))
 	float SlideBrakingDeceleration;
 	float DefaultBrakingDeceleration;

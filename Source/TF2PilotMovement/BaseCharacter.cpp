@@ -17,6 +17,7 @@
 // Sets default values
 ABaseCharacter::ABaseCharacter() :
 	// Setup
+	bAutoSprint(true),
 	DefaultFOV(110.f),
 	SlideFOVOffset(5.f),
 	SlideFOV(0.f),
@@ -24,7 +25,6 @@ ABaseCharacter::ABaseCharacter() :
 	WalkSpeed(412.75f),
 	CrouchSpeed(203.2f),
 	WallrunSpeed(863.6f),
-	bAutoSprint(true),
 	CapsuleInterpSpeed(10.f),
 	CrouchCapsuleHalfHeight(60.f),
 	SlideBoostResetTime(2.f),
@@ -92,14 +92,17 @@ void ABaseCharacter::BeginPlay()
 	// GetCharacterMovement()->bCrouchMaintainsBaseLocation = true;
 
 	DefaultCapsuleHalfHeight = GetDefaultHalfHeight();
-	DefaultGroundFirction = GetCharacterMovement()->GroundFriction;
+	DefaultGroundFriction = GetCharacterMovement()->GroundFriction;
 	DefaultBrakingDeceleration = GetCharacterMovement()->BrakingDecelerationWalking;
 }
 
 void ABaseCharacter::MoveForward()
 {
 	bInputForward = true;
-	if (bAutoSprint && MovementStatus == EMovementStatus::MS_Land)
+	if (bAutoSprint && 
+		MovementStatus == EMovementStatus::MS_Land &&
+		!bIsCrouching &&
+		!bIsSliding)
 	{
 		bIsSprinting = true;
 	}
@@ -239,6 +242,10 @@ void ABaseCharacter::CustomStopCrouch()
 	{
 		StopSlide();
 	}
+	if (bAutoSprint && bInputForward)
+	{
+		bIsSprinting = true;
+	}
 }
 
 void ABaseCharacter::SprintOrWalk()
@@ -260,6 +267,8 @@ void ABaseCharacter::SetMovementStatus(EMovementStatus NewStatus)
 		break;
 	case EMovementStatus::MS_Fall:
 		break;
+	case EMovementStatus::MS_JumpBeforeApex:
+		break;
 	case EMovementStatus::DefaultMax:
 		break;
 	}
@@ -273,14 +282,11 @@ float ABaseCharacter::GetCurrentMaxSpeed() const
 	{
 		return CrouchSpeed;
 	}
-	else
+	if (bIsWallrunning)
 	{
-		if (bIsWallrunning)
-		{
-			return WallrunSpeed;
-		}
-		return bIsSprinting ? SprintSpeed : WalkSpeed;
+		return WallrunSpeed;
 	}
+	return bIsSprinting ? SprintSpeed : WalkSpeed;
 }
 
 void ABaseCharacter::InterpCapsuleHalfHeight(float DeltaTime)
@@ -367,7 +373,7 @@ void ABaseCharacter::StopSlide()
 	);
 
 	GetCharacterMovement()->MaxAcceleration = DefaultMaxAcceleration;
-	GetCharacterMovement()->GroundFriction = DefaultGroundFirction;
+	GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
 	GetCharacterMovement()->BrakingDecelerationWalking = DefaultBrakingDeceleration;
 
 	SlideDirection = FVector::ZeroVector;
@@ -495,6 +501,26 @@ void ABaseCharacter::MovementInputManagement()
 	AddMovementInput(InputDirection, 1.f, true);
 }
 
+void ABaseCharacter::ChangeGroundFriction()
+{
+	if (GetWorldTimerManager().IsTimerActive(GroundFrictionTimer) && 
+		!bIsSliding &&
+		GroundFrictionCurveFloat)
+	{
+		const float TimeElapsed = GetWorldTimerManager().GetTimerElapsed(GroundFrictionTimer);
+		const float CurveValue = GroundFrictionCurveFloat->GetFloatValue(TimeElapsed);
+		GetCharacterMovement()->GroundFriction = CurveValue * DefaultGroundFriction;
+	}
+}
+
+void ABaseCharacter::RestoreGroundFriction()
+{
+	if (!bIsSliding)
+	{
+		GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
+	}
+}
+
 // Called every frame
 void ABaseCharacter::Tick(float DeltaTime)
 {
@@ -509,6 +535,7 @@ void ABaseCharacter::Tick(float DeltaTime)
 	{
 		StopSlide();
 	}
+	ChangeGroundFriction();
 
 	FHitResult HitResult;
 	TArray<AActor*> ar;
@@ -570,10 +597,20 @@ void ABaseCharacter::Landed(const FHitResult& Hit)
 		&ABaseCharacter::ActivateMaxJump,
 		.12f
 	);
+	GetWorldTimerManager().SetTimer(
+		GroundFrictionTimer,
+		this,
+		&ABaseCharacter::RestoreGroundFriction,
+		1.f
+	);
 
 	if (CanSlide())
 	{
 		StartSlide();
+	}
+	if (bAutoSprint && bInputForward)
+	{
+		bIsSprinting = true;
 	}
 
 	ShakeCamera();
